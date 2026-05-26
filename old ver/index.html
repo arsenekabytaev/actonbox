@@ -1,0 +1,1821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ROUNDS — Boxing Motion Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #0a0a0a;
+  --bg-2: #141414;
+  --bg-3: #1c1c1c;
+  --line: #2a2a2a;
+  --ink: #f4f1ea;
+  --ink-dim: #8a8680;
+  --ink-faint: #555048;
+  --red: #dc2626;
+  --red-dim: #7a1818;
+  --bone: #f4f1ea;
+  --gold: #fbbf24;
+  --green: #4ade80;
+  --pad: 14px;
+  --display: "Anton", "Impact", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  overflow: hidden;
+  height: 100vh; height: 100dvh;
+  width: 100vw;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.screen.active { display: flex; }
+
+/* ---------- Splash ---------- */
+#splash {
+  background: radial-gradient(ellipse at 50% 30%, #1a0808 0%, #0a0a0a 60%);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 100;
+}
+#splash .logo {
+  font-family: var(--display);
+  font-size: clamp(72px, 22vw, 180px);
+  letter-spacing: -0.02em;
+  line-height: 0.85;
+  color: var(--bone);
+  margin: 0;
+  position: relative;
+}
+#splash .logo::after {
+  content: "";
+  position: absolute;
+  right: -18px; top: 8px;
+  width: 14px; height: 14px;
+  background: var(--red);
+  border-radius: 50%;
+}
+#splash .tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--ink-dim);
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+#splash .note {
+  max-width: 320px;
+  margin: 32px 24px 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+#splash .note strong { color: var(--ink-dim); font-weight: 700; }
+#splash button {
+  margin-top: 40px;
+  background: var(--red);
+  color: var(--bone);
+  border: none;
+  font-family: var(--display);
+  font-size: 28px;
+  letter-spacing: 0.05em;
+  padding: 18px 56px;
+  cursor: pointer;
+  position: relative;
+  text-transform: uppercase;
+}
+#splash button:active { transform: scale(0.98); }
+#splash .loader {
+  margin-top: 24px;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  min-height: 14px;
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  flex-shrink: 0;
+}
+.topbar .brand {
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: var(--bone);
+  margin-right: auto;
+}
+.topbar .brand .dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  margin-left: 4px;
+  vertical-align: 2px;
+}
+.topbar .stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.topbar .stat b {
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--bone);
+  font-size: 12px;
+}
+.rec-dot {
+  width: 8px; height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  display: inline-block;
+  animation: blink 1s infinite;
+}
+@keyframes blink { 50% { opacity: 0.25; } }
+
+/* ---------- Live ---------- */
+#live-screen { background: #000; }
+.video-wrap {
+  flex: 1;
+  position: relative;
+  background: #000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.video-frame {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  /* aspect-ratio set in JS once camera resolution is known */
+  aspect-ratio: 4 / 3;
+  width: 100%;
+}
+.video-frame.mirror { transform: scaleX(-1); }
+#video, #overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#video { object-fit: fill; background: #000; }
+.hud {
+  position: absolute;
+  pointer-events: none;
+  font-family: var(--mono);
+}
+.hud-tl {
+  top: 10px; left: 10px;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+}
+.hud-tr {
+  top: 10px; right: 10px;
+  text-align: right;
+}
+.hud-tr .punches {
+  font-family: var(--display);
+  font-size: 64px;
+  line-height: 0.9;
+  color: var(--bone);
+  letter-spacing: -0.03em;
+}
+.hud-tr .label {
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  margin-top: -2px;
+}
+.hud-bl {
+  bottom: 12px; left: 12px;
+  font-size: 10px;
+  color: var(--ink-dim);
+  letter-spacing: 0.1em;
+}
+.hud-bl .row { margin-top: 4px; }
+.hud-bl b { color: var(--bone); font-weight: 700; }
+.flash {
+  position: absolute;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: 2px solid var(--red);
+  transform: translate(-50%, -50%) scale(0.5);
+  opacity: 0.9;
+  pointer-events: none;
+  animation: flash 0.5s ease-out forwards;
+}
+.flash.left { border-color: var(--red); }
+.flash.right { border-color: var(--gold); }
+@keyframes flash {
+  to { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+}
+.punch-label {
+  position: absolute;
+  font-family: var(--display);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--bone);
+  text-transform: uppercase;
+  transform: translate(-50%, -120%);
+  pointer-events: none;
+  animation: rise 0.6s ease-out forwards;
+  text-shadow: 0 0 6px rgba(0,0,0,0.9);
+  white-space: nowrap;
+}
+/* When the frame is mirrored, counter-mirror the text so it reads forward */
+.video-frame.mirror .punch-label { transform: translate(-50%, -120%) scaleX(-1); }
+.video-frame.mirror .punch-label { animation: rise-m 0.6s ease-out forwards; }
+@keyframes rise {
+  to { transform: translate(-50%, -200%); opacity: 0; }
+}
+@keyframes rise-m {
+  to { transform: translate(-50%, -200%) scaleX(-1); opacity: 0; }
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.controls button {
+  background: var(--bg-2);
+  color: var(--ink);
+  border: none;
+  padding: 14px 4px 12px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.controls button:active { background: var(--bg-3); }
+.controls button.active { background: var(--bg-3); color: var(--gold); }
+.controls button.active::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gold);
+}
+.controls button .icon {
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0;
+  color: var(--bone);
+  line-height: 1;
+}
+.controls button.rec .icon { color: var(--red); }
+.controls button.rec.active .icon { color: var(--red); }
+.controls button.rec.active {
+  background: #1a0606;
+  color: var(--red);
+}
+.controls button.rec.active::before { background: var(--red); }
+.controls button:disabled { opacity: 0.35; cursor: default; }
+
+.banner {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  text-transform: uppercase;
+  background: rgba(0,0,0,0.6);
+  padding: 16px 28px;
+  border: 1px solid var(--gold);
+  pointer-events: none;
+  text-align: center;
+}
+.banner small {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--bone);
+  margin-top: 6px;
+  font-weight: 400;
+}
+
+/* ---------- Summary ---------- */
+#summary-screen {
+  background: var(--bg);
+  overflow-y: auto;
+}
+.summary-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+.title-block {
+  border-left: 3px solid var(--red);
+  padding-left: 12px;
+  margin-bottom: 20px;
+}
+.title-block .kicker {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+}
+.title-block h1 {
+  font-family: var(--display);
+  font-size: 42px;
+  margin: 4px 0 0;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--bone);
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.stat-cell {
+  background: var(--bg-2);
+  padding: 14px 12px;
+  text-align: left;
+}
+.stat-cell .label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.stat-cell .val {
+  font-family: var(--display);
+  font-size: 32px;
+  line-height: 1;
+  color: var(--bone);
+  letter-spacing: -0.02em;
+}
+.stat-cell .sub {
+  font-size: 10px;
+  color: var(--ink-dim);
+  margin-top: 4px;
+  letter-spacing: 0.1em;
+}
+.breakdown {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.breakdown .cell {
+  background: var(--bg-2);
+  padding: 10px 8px;
+  text-align: center;
+}
+.breakdown .cell .label {
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+}
+.breakdown .cell .val {
+  font-family: var(--display);
+  font-size: 22px;
+  color: var(--bone);
+  margin-top: 4px;
+  line-height: 1;
+}
+.breakdown .cell.l .val { color: var(--red); }
+.breakdown .cell.r .val { color: var(--gold); }
+
+.section {
+  margin-bottom: 18px;
+}
+.section h3 {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section h3::before {
+  content: "";
+  width: 8px; height: 8px;
+  background: var(--red);
+  display: inline-block;
+}
+.canvas-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  position: relative;
+  overflow: hidden;
+}
+#graphCanvas, #heatCanvas, #replayCanvas {
+  display: block;
+  width: 100%;
+  background: var(--bg-2);
+}
+.legend {
+  position: absolute;
+  bottom: 8px; right: 10px;
+  font-size: 9px;
+  color: var(--ink-dim);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  display: flex;
+  gap: 12px;
+}
+.legend span { display: inline-flex; align-items: center; gap: 4px; }
+.legend .swatch { width: 8px; height: 8px; display: inline-block; }
+.legend .l { background: var(--red); }
+.legend .r { background: var(--gold); }
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.actions button {
+  background: var(--bg-2);
+  color: var(--bone);
+  border: none;
+  padding: 16px 8px;
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.actions button:active { background: var(--bg-3); }
+.actions button.primary { background: var(--red); }
+.actions button.primary:active { background: var(--red-dim); }
+.actions.three { grid-template-columns: 1fr 1fr 1fr; }
+
+.disclaimer {
+  font-size: 10px;
+  color: var(--ink-faint);
+  line-height: 1.6;
+  letter-spacing: 0.05em;
+  padding: 12px;
+  border: 1px dashed var(--line);
+  margin-bottom: 20px;
+  background: rgba(220, 38, 38, 0.03);
+}
+.disclaimer b { color: var(--ink-dim); font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; font-size: 9px; }
+
+/* ---------- Replay ---------- */
+#replay-screen { background: #000; }
+.replay-wrap {
+  flex: 1;
+  position: relative;
+  background: var(--bg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#replayCanvas {
+  max-width: 100%;
+  max-height: 100%;
+  background: var(--bg);
+}
+.replay-controls {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 12px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.replay-controls button {
+  background: var(--bg-3);
+  color: var(--bone);
+  border: 1px solid var(--line);
+  width: 44px; height: 44px;
+  font-family: var(--display);
+  font-size: 18px;
+  cursor: pointer;
+}
+.replay-controls button.play { background: var(--red); color: var(--bone); border-color: var(--red); }
+.replay-controls .scrub {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--line);
+  outline: none;
+}
+.replay-controls .scrub::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  background: var(--gold);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.replay-controls .scrub::-moz-range-thumb {
+  width: 18px; height: 18px;
+  background: var(--gold);
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+.replay-time {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  letter-spacing: 0.1em;
+  min-width: 64px;
+  text-align: center;
+}
+
+#zoneHint {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--display);
+  font-size: 18px;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  text-transform: uppercase;
+  background: rgba(0,0,0,0.7);
+  padding: 14px 24px;
+  border: 1px solid var(--gold);
+  pointer-events: none;
+  text-align: center;
+  display: none;
+}
+
+.toast {
+  position: fixed;
+  bottom: 80px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 10px 18px;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  font-family: var(--mono);
+}
+.toast.show { opacity: 1; }
+
+@media (max-width: 380px) {
+  .stat-cell .val { font-size: 26px; }
+  .breakdown .cell .val { font-size: 18px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============== SPLASH ============== -->
+<div id="splash" class="screen active">
+  <h1 class="logo">ROUNDS</h1>
+  <div class="tag">Boxing Motion Tracker</div>
+  <div class="note">
+    <b>WHAT THIS IS:</b> a real-time tracker that classifies arm motion as straight, hook, or uppercut and maps where your wrists travel through 2D space.
+    <br><br>
+    <b>WHAT IT IS NOT:</b> a contact sensor. It cannot tell if you actually hit anything. The "hit zone" is a visual filter on the camera frame.
+  </div>
+  <button id="startBtn">Tap to Start</button>
+  <div class="loader" id="loader"></div>
+</div>
+
+<!-- ============== LIVE ============== -->
+<div id="live-screen" class="screen">
+  <div class="topbar">
+    <span class="brand">ROUNDS<span class="dot"></span></span>
+    <span class="stat" id="recIndicator" style="display:none;">
+      <span class="rec-dot"></span> REC
+    </span>
+    <span class="stat">FPS <b id="fpsLabel">—</b></span>
+  </div>
+  <div class="video-wrap" id="videoWrap">
+    <div class="video-frame" id="videoFrame">
+      <video id="video" playsinline webkit-playsinline muted autoplay></video>
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="hud hud-tl">
+      <div>TIME <b id="timeLabel" style="color:var(--bone);font-family:var(--mono);">00:00</b></div>
+    </div>
+    <div class="hud hud-tr">
+      <div class="punches" id="punchLabel">0</div>
+      <div class="label">Punches</div>
+    </div>
+    <div class="hud hud-bl">
+      <div class="row">L <b id="lCount">0</b> &nbsp;/&nbsp; R <b id="rCount">0</b></div>
+      <div class="row" id="rateLabel">— /min</div>
+    </div>
+
+    <div class="banner" id="readyBanner" style="display:none;">
+      READY
+      <small>Hit REC to start the round</small>
+    </div>
+    <div id="zoneHint">Tap a target on screen</div>
+  </div>
+  <div class="controls">
+    <button id="recBtn" class="rec">
+      <span class="icon" id="recIcon">●</span>
+      <span id="recLabel">REC</span>
+    </button>
+    <button id="zoneBtn">
+      <span class="icon">◎</span>
+      <span>Zone</span>
+    </button>
+    <button id="flipBtn">
+      <span class="icon">⇄</span>
+      <span>Flip</span>
+    </button>
+    <button id="endBtn">
+      <span class="icon">■</span>
+      <span>End</span>
+    </button>
+  </div>
+</div>
+
+<!-- ============== SUMMARY ============== -->
+<div id="summary-screen" class="screen">
+  <div class="topbar">
+    <span class="brand">ROUNDS<span class="dot"></span></span>
+    <span class="stat">SESSION COMPLETE</span>
+  </div>
+  <div class="summary-body">
+    <div class="title-block">
+      <div class="kicker">Round Summary</div>
+      <h1 id="summaryDate">—</h1>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-cell">
+        <div class="label">Time</div>
+        <div class="val" id="sTime">0:00</div>
+        <div class="sub">Round duration</div>
+      </div>
+      <div class="stat-cell">
+        <div class="label">Punches</div>
+        <div class="val" id="sCount">0</div>
+        <div class="sub">Motion events</div>
+      </div>
+      <div class="stat-cell">
+        <div class="label">Rate</div>
+        <div class="val" id="sRate">0</div>
+        <div class="sub">Per minute</div>
+      </div>
+    </div>
+
+    <div class="breakdown">
+      <div class="cell"><div class="label">Straight</div><div class="val" id="bStraight">0</div></div>
+      <div class="cell"><div class="label">Hook</div><div class="val" id="bHook">0</div></div>
+      <div class="cell"><div class="label">Uppercut</div><div class="val" id="bUpper">0</div></div>
+      <div class="cell"><div class="label">Avg Vel</div><div class="val" id="bVel">0</div></div>
+    </div>
+
+    <div class="section">
+      <h3>Rate Over Time</h3>
+      <div class="canvas-card">
+        <canvas id="graphCanvas" width="600" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Wrist Position Map</h3>
+      <div class="canvas-card">
+        <canvas id="heatCanvas" width="600" height="450"></canvas>
+        <div class="legend">
+          <span><span class="swatch l"></span>Left</span>
+          <span><span class="swatch r"></span>Right</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      <b>What you're looking at:</b> wrist coordinates from 2D pose estimation, classified by elbow-angle dynamics. Counts are <em>motion events</em>, not impacts. Counts will include shadow strikes, feints with full extension, and may miss low-confidence frames during motion blur.
+    </div>
+  </div>
+  <div class="actions three">
+    <button id="csvBtn">CSV</button>
+    <button id="replayBtn">Replay</button>
+    <button id="newBtn" class="primary">New Round</button>
+  </div>
+</div>
+
+<!-- ============== REPLAY ============== -->
+<div id="replay-screen" class="screen">
+  <div class="topbar">
+    <span class="brand">ROUNDS<span class="dot"></span></span>
+    <span class="stat">REPLAY</span>
+    <button id="replayBackBtn" style="background:none;border:1px solid var(--line);color:var(--ink);font-family:var(--mono);font-size:10px;padding:4px 10px;letter-spacing:0.15em;cursor:pointer;">← BACK</button>
+  </div>
+  <div class="replay-wrap">
+    <canvas id="replayCanvas" width="640" height="480"></canvas>
+  </div>
+  <div class="replay-controls">
+    <button id="replayPlay" class="play"><span id="replayPlayIcon">▶</span></button>
+    <input type="range" id="replayScrub" class="scrub" min="0" max="100" value="0" step="0.1">
+    <span class="replay-time" id="replayTime">0:00 / 0:00</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- TF.js + pose-detection from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-wasm@4.20.0/dist/tf-backend-wasm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-cpu@4.20.0/dist/tf-backend-cpu.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+<script>
+"use strict";
+
+/* =====================================================
+   CONFIG
+   ===================================================== */
+const CONFIG = {
+  // Memory caps — keep iOS Safari happy
+  MAX_REPLAY_FRAMES: 1500,   // ~5 min at one sample / 200ms
+  MAX_CSV_ROWS: 30000,       // ~20 min at 25 FPS
+  REPLAY_SAMPLE_EVERY: 3,    // store every Nth frame
+  // Detection thresholds
+  WRIST_CONF: 0.20,          // low; rely on elbow + shoulder to validate
+  ELBOW_CONF: 0.30,
+  SHOULDER_CONF: 0.30,
+  PUNCH_COOLDOWN_MS: 180,    // allows ~5 doubles/sec, faster than human
+  // Straight punch: elbow extends rapidly toward near-straight
+  STRAIGHT_ANGLE_RATE: 220,  // deg/sec of extension
+  STRAIGHT_MIN_END_ANGLE: 140,
+  STRAIGHT_MIN_VEL: 0.7,
+  // Hook: lateral wrist motion with bent elbow
+  HOOK_LATERAL_VEL: 1.1,
+  HOOK_MAX_ANGLE: 125,
+  HOOK_MIN_VEL: 1.3,
+  // Uppercut: upward velocity, mid-bent elbow
+  UPPER_UP_VEL: 1.1,
+  UPPER_MAX_ANGLE: 140,
+  UPPER_MIN_VEL: 1.0,
+  // Smoothing
+  FPS_ALPHA: 0.15,
+};
+
+const KP = {
+  NOSE: 0, L_EYE: 1, R_EYE: 2, L_EAR: 3, R_EAR: 4,
+  L_SHOULDER: 5, R_SHOULDER: 6,
+  L_ELBOW: 7, R_ELBOW: 8,
+  L_WRIST: 9, R_WRIST: 10,
+  L_HIP: 11, R_HIP: 12,
+  L_KNEE: 13, R_KNEE: 14,
+  L_ANKLE: 15, R_ANKLE: 16,
+};
+
+const SKELETON = [
+  [5,7],[7,9],[6,8],[8,10],          // arms
+  [5,6],[5,11],[6,12],[11,12],       // torso
+  [11,13],[13,15],[12,14],[14,16],   // legs
+  [0,5],[0,6]                        // head to shoulders
+];
+
+/* =====================================================
+   STATE
+   ===================================================== */
+const STATE = {
+  detector: null,
+  stream: null,
+  facingMode: 'user',
+  recordingFacingMode: 'user',  // facingMode at start of last recording
+  running: false,
+  recording: false,
+  startT: 0,
+  pauseStart: 0,
+  totalPaused: 0,
+  punches: [],
+  replay: [],          // ring buffer
+  csv: [],             // ring buffer
+  hitZone: null,       // {cx, ny, r} normalized
+  zoneSetting: false,
+  fps: 0,
+  fpsCount: 0,
+  fpsT: performance.now(),
+  videoW: 640,
+  videoH: 480,
+  loopId: 0,
+};
+
+const HAND = {
+  left:  { prevWrist: null, prevAngle: null, prevForearm: null, lastHit: 0 },
+  right: { prevWrist: null, prevAngle: null, prevForearm: null, lastHit: 0 },
+};
+
+/* =====================================================
+   DOM
+   ===================================================== */
+const $ = (id) => document.getElementById(id);
+const splash = $('splash');
+const liveScreen = $('live-screen');
+const summaryScreen = $('summary-screen');
+const replayScreen = $('replay-screen');
+const video = $('video');
+const overlay = $('overlay');
+const overlayCtx = overlay.getContext('2d');
+const videoWrap = $('videoWrap');
+const videoFrame = $('videoFrame');
+const loader = $('loader');
+const toast = $('toast');
+
+let toastTimer = 0;
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+function setScreen(name) {
+  for (const el of [splash, liveScreen, summaryScreen, replayScreen]) {
+    el.classList.remove('active');
+  }
+  ({
+    splash, live: liveScreen, summary: summaryScreen, replay: replayScreen
+  })[name].classList.add('active');
+}
+
+/* =====================================================
+   MODEL + CAMERA SETUP
+   ===================================================== */
+async function pickBackend() {
+  const tryB = async (name) => {
+    try { await tf.setBackend(name); await tf.ready(); return tf.getBackend() === name; }
+    catch (e) { return false; }
+  };
+  if (await tryB('webgl')) return 'webgl';
+  loader.textContent = 'WebGL unavailable — trying WASM';
+  if (await tryB('wasm')) return 'wasm';
+  loader.textContent = 'WASM unavailable — falling back to CPU';
+  if (await tryB('cpu')) return 'cpu';
+  throw new Error('No TF backend available');
+}
+
+async function loadDetector() {
+  loader.textContent = 'Loading MoveNet…';
+  const detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    {
+      modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+      enableSmoothing: true,
+    }
+  );
+  return detector;
+}
+
+async function setupCamera(facingMode) {
+  if (STATE.stream) {
+    STATE.stream.getTracks().forEach(t => t.stop());
+    STATE.stream = null;
+  }
+  const constraints = {
+    audio: false,
+    video: {
+      facingMode: { ideal: facingMode },
+      width: { ideal: 640 },
+      height: { ideal: 480 },
+    }
+  };
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  STATE.stream = stream;
+  video.srcObject = stream;
+  await new Promise((resolve) => {
+    if (video.readyState >= 2) return resolve();
+    video.onloadedmetadata = () => resolve();
+  });
+  await video.play();
+  STATE.videoW = video.videoWidth || 640;
+  STATE.videoH = video.videoHeight || 480;
+  sizeOverlay();
+}
+
+function sizeOverlay() {
+  // Match canvas drawing buffer to video intrinsic size so keypoints (in
+  // raw video pixels) draw at the correct positions when CSS scales the
+  // canvas to fill the frame.
+  overlay.width = STATE.videoW;
+  overlay.height = STATE.videoH;
+  // Make the frame match the video's aspect ratio exactly so the canvas
+  // overlay aligns pixel-for-pixel with the video underneath.
+  videoFrame.style.aspectRatio = STATE.videoW + ' / ' + STATE.videoH;
+  // CSS mirror only for front camera so user sees a "selfie" view.
+  videoFrame.classList.toggle('mirror', STATE.facingMode === 'user');
+}
+
+/* =====================================================
+   GEOMETRY HELPERS
+   ===================================================== */
+function angleAt(a, b, c) {
+  // Angle at point b between rays b->a and b->c, in degrees
+  const v1x = a.x - b.x, v1y = a.y - b.y;
+  const v2x = c.x - b.x, v2y = c.y - b.y;
+  const m1 = Math.hypot(v1x, v1y);
+  const m2 = Math.hypot(v2x, v2y);
+  if (m1 < 1e-3 || m2 < 1e-3) return null;
+  const c2 = Math.max(-1, Math.min(1, (v1x*v2x + v1y*v2y) / (m1*m2)));
+  return Math.acos(c2) * 180 / Math.PI;
+}
+
+/* =====================================================
+   PUNCH DETECTION
+   ===================================================== */
+function detectPunches(kps, t, W, H) {
+  const hits = [];
+  for (const side of ['left', 'right']) {
+    const wIdx = side === 'left' ? KP.L_WRIST : KP.R_WRIST;
+    const eIdx = side === 'left' ? KP.L_ELBOW : KP.R_ELBOW;
+    const sIdx = side === 'left' ? KP.L_SHOULDER : KP.R_SHOULDER;
+    const wrist = kps[wIdx], elbow = kps[eIdx], shoulder = kps[sIdx];
+    const st = HAND[side];
+
+    const wrOk = wrist && wrist.score >= CONFIG.WRIST_CONF;
+    const elOk = elbow && elbow.score >= CONFIG.ELBOW_CONF;
+    const shOk = shoulder && shoulder.score >= CONFIG.SHOULDER_CONF;
+
+    // Need at least elbow + shoulder to consider motion. If wrist is missing
+    // we don't reset state hard — we let it skip this frame.
+    if (!elOk || !shOk) {
+      if (!wrOk) {
+        st.prevWrist = null;
+        st.prevAngle = null;
+        st.prevForearm = null;
+      }
+      continue;
+    }
+    if (!wrOk) continue;
+
+    const elbowAngle = angleAt(shoulder, elbow, wrist);
+    const forearmLen = Math.hypot(wrist.x - elbow.x, wrist.y - elbow.y);
+
+    if (st.prevWrist && st.prevAngle !== null && elbowAngle !== null) {
+      const dt = (t - st.prevWrist.t) / 1000;
+      if (dt > 0 && dt < 0.25) {
+        const dxN = (wrist.x - st.prevWrist.x) / W;
+        const dyN = (wrist.y - st.prevWrist.y) / H;
+        const vel = Math.hypot(dxN, dyN) / dt;
+        const latVel = Math.abs(dxN) / dt;
+        const upVel = -dyN / dt;
+        const angleRate = (elbowAngle - st.prevAngle) / dt;
+
+        // Foreshortening proxy: forearm visually shorter = arm rotating
+        // toward/away from camera (useful for straight-on jab detection)
+        let forearmShrink = 0;
+        if (st.prevForearm !== null && st.prevForearm > 1) {
+          forearmShrink = (st.prevForearm - forearmLen) / st.prevForearm / dt;
+        }
+
+        const cooldownOk = (t - st.lastHit) > CONFIG.PUNCH_COOLDOWN_MS;
+
+        let type = null;
+        if (cooldownOk) {
+          // Straight (jab / cross): elbow extending rapidly OR
+          // forearm foreshortening with already near-extended arm.
+          if ((angleRate > CONFIG.STRAIGHT_ANGLE_RATE &&
+               elbowAngle > CONFIG.STRAIGHT_MIN_END_ANGLE &&
+               vel > CONFIG.STRAIGHT_MIN_VEL) ||
+              (forearmShrink > 1.2 &&
+               elbowAngle > 120 &&
+               vel > 0.5)) {
+            type = 'straight';
+          }
+          // Hook: elbow stays bent, wrist sweeps laterally
+          else if (elbowAngle < CONFIG.HOOK_MAX_ANGLE &&
+                   latVel > CONFIG.HOOK_LATERAL_VEL &&
+                   vel > CONFIG.HOOK_MIN_VEL) {
+            type = 'hook';
+          }
+          // Uppercut: upward wrist motion, elbow mid-bent
+          else if (upVel > CONFIG.UPPER_UP_VEL &&
+                   elbowAngle < CONFIG.UPPER_MAX_ANGLE &&
+                   vel > CONFIG.UPPER_MIN_VEL) {
+            type = 'uppercut';
+          }
+        }
+
+        if (type) {
+          const nx = wrist.x / W;
+          const ny = wrist.y / H;
+          let inZone = true;
+          if (STATE.hitZone) {
+            const z = STATE.hitZone;
+            inZone = Math.hypot(nx - z.cx, ny - z.cy) < z.r;
+          }
+          if (inZone) {
+            st.lastHit = t;
+            hits.push({
+              side, type,
+              nx, ny,
+              vel: +vel.toFixed(3),
+              elbowAngle: +elbowAngle.toFixed(1),
+              t: t - STATE.startT,
+            });
+          }
+        }
+      }
+    }
+
+    st.prevWrist = { x: wrist.x, y: wrist.y, t };
+    st.prevAngle = elbowAngle;
+    st.prevForearm = forearmLen;
+  }
+  return hits;
+}
+
+/* =====================================================
+   DRAW
+   ===================================================== */
+function drawSkeleton(kps, W, H) {
+  // Bones
+  overlayCtx.lineWidth = 3;
+  for (const [a, b] of SKELETON) {
+    const ka = kps[a], kb = kps[b];
+    if (!ka || !kb) continue;
+    if (ka.score < 0.25 || kb.score < 0.25) continue;
+    const isArm = (a === 5 && b === 7) || (a === 7 && b === 9) ||
+                  (a === 6 && b === 8) || (a === 8 && b === 10);
+    overlayCtx.strokeStyle = isArm ? '#dc2626' : '#f4f1ea';
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(ka.x, ka.y);
+    overlayCtx.lineTo(kb.x, kb.y);
+    overlayCtx.stroke();
+  }
+  // Joints
+  for (let i = 0; i < kps.length; i++) {
+    const k = kps[i];
+    if (!k || k.score < 0.25) continue;
+    const r = (i === KP.L_WRIST || i === KP.R_WRIST) ? 6 : 3;
+    overlayCtx.fillStyle = (i === KP.L_WRIST) ? '#dc2626' :
+                          (i === KP.R_WRIST) ? '#fbbf24' : '#f4f1ea';
+    overlayCtx.beginPath();
+    overlayCtx.arc(k.x, k.y, r, 0, Math.PI * 2);
+    overlayCtx.fill();
+  }
+}
+
+function drawHitZone(W, H) {
+  if (!STATE.hitZone) return;
+  const z = STATE.hitZone;
+  const cx = z.cx * W, cy = z.cy * H, rr = z.r * Math.min(W, H);
+  overlayCtx.strokeStyle = 'rgba(251, 191, 36, 0.7)';
+  overlayCtx.setLineDash([8, 6]);
+  overlayCtx.lineWidth = 2;
+  overlayCtx.beginPath();
+  overlayCtx.arc(cx, cy, rr, 0, Math.PI * 2);
+  overlayCtx.stroke();
+  overlayCtx.setLineDash([]);
+  // Crosshair
+  overlayCtx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+  overlayCtx.lineWidth = 1;
+  overlayCtx.beginPath();
+  overlayCtx.moveTo(cx - 10, cy); overlayCtx.lineTo(cx + 10, cy);
+  overlayCtx.moveTo(cx, cy - 10); overlayCtx.lineTo(cx, cy + 10);
+  overlayCtx.stroke();
+}
+
+function flashPunch(hit) {
+  // Position inside the (possibly mirrored) video-frame using percentages,
+  // which are in raw video coord space. CSS mirror on .video-frame will
+  // flip the visual position to align with the user's visible body.
+  const f = document.createElement('div');
+  f.className = 'flash ' + hit.side;
+  f.style.left = (hit.nx * 100) + '%';
+  f.style.top = (hit.ny * 100) + '%';
+  videoFrame.appendChild(f);
+  setTimeout(() => f.remove(), 600);
+
+  const lbl = document.createElement('div');
+  lbl.className = 'punch-label';
+  lbl.textContent = hit.type;
+  lbl.style.left = (hit.nx * 100) + '%';
+  lbl.style.top = (hit.ny * 100) + '%';
+  lbl.style.color = hit.side === 'left' ? '#dc2626' : '#fbbf24';
+  videoFrame.appendChild(lbl);
+  setTimeout(() => lbl.remove(), 700);
+}
+
+function smoothFPS(prev, cur) {
+  return prev === 0 ? cur : prev + CONFIG.FPS_ALPHA * (cur - prev);
+}
+
+function fmtTime(ms) {
+  const s = Math.floor(ms / 1000);
+  return String(Math.floor(s / 60)).padStart(1, '0') + ':' + String(s % 60).padStart(2, '0');
+}
+
+function updateHUD() {
+  $('fpsLabel').textContent = STATE.fps ? Math.round(STATE.fps) : '—';
+  const elapsed = STATE.recording ? (performance.now() - STATE.startT) : 0;
+  $('timeLabel').textContent = fmtTime(elapsed);
+  const total = STATE.punches.length;
+  $('punchLabel').textContent = total;
+  let l = 0, r = 0;
+  for (const p of STATE.punches) { if (p.side === 'left') l++; else r++; }
+  $('lCount').textContent = l;
+  $('rCount').textContent = r;
+  const mins = elapsed / 60000;
+  const rate = mins > 0.05 ? Math.round(total / mins) : 0;
+  $('rateLabel').textContent = rate + ' /min';
+}
+
+/* =====================================================
+   MAIN LOOP
+   ===================================================== */
+async function loop() {
+  if (!STATE.running) return;
+
+  const t = performance.now();
+
+  // Detection
+  let poses = [];
+  try {
+    poses = await STATE.detector.estimatePoses(video, {
+      // Keypoints stay in raw video pixel space. The CSS mirror on
+      // .video-frame visually flips both video and skeleton together.
+      flipHorizontal: false,
+    });
+  } catch (e) {
+    console.error('Estimation error:', e);
+  }
+
+  // FPS counter
+  STATE.fpsCount++;
+  const fpsDt = t - STATE.fpsT;
+  if (fpsDt > 500) {
+    const cur = STATE.fpsCount * 1000 / fpsDt;
+    STATE.fps = smoothFPS(STATE.fps, cur);
+    STATE.fpsCount = 0;
+    STATE.fpsT = t;
+  }
+
+  // Clear overlay, draw skeleton. Keypoints are in raw video coords; the
+  // CSS scaleX(-1) on .video-frame mirrors video and canvas together so
+  // the skeleton stays aligned to the user's visible body.
+  overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+
+  if (poses.length > 0 && poses[0].keypoints) {
+    const kps = poses[0].keypoints;
+    drawSkeleton(kps, overlay.width, overlay.height);
+    drawHitZone(overlay.width, overlay.height);
+
+    if (STATE.recording) {
+      const hits = detectPunches(kps, t, overlay.width, overlay.height);
+      for (const h of hits) {
+        STATE.punches.push(h);
+        flashPunch(h);
+      }
+
+      // Ring-buffered replay
+      if ((STATE.replay.length % CONFIG.REPLAY_SAMPLE_EVERY) === 0) {
+        if (STATE.replay.length >= CONFIG.MAX_REPLAY_FRAMES) {
+          STATE.replay.shift();
+        }
+        STATE.replay.push({
+          t: t - STATE.startT,
+          k: kps.map(k => ({
+            x: Math.round(k.x),
+            y: Math.round(k.y),
+            s: +((k.score || 0).toFixed(2)),
+          })),
+        });
+      }
+
+      // Ring-buffered CSV
+      if (STATE.csv.length >= CONFIG.MAX_CSV_ROWS) STATE.csv.shift();
+      const row = [Math.round(t - STATE.startT)];
+      for (const k of kps) {
+        row.push(k.x.toFixed(1), k.y.toFixed(1), (k.score || 0).toFixed(2));
+      }
+      STATE.csv.push(row);
+    }
+  } else {
+    drawHitZone(overlay.width, overlay.height);
+  }
+
+  updateHUD();
+  STATE.loopId = requestAnimationFrame(loop);
+}
+
+/* =====================================================
+   RECORDING CONTROL
+   ===================================================== */
+function startRecording() {
+  STATE.recording = true;
+  STATE.startT = performance.now();
+  STATE.recordingFacingMode = STATE.facingMode;
+  STATE.punches = [];
+  STATE.replay = [];
+  STATE.csv = [];
+  $('recIndicator').style.display = 'inline-flex';
+  $('recIcon').textContent = '■';
+  $('recLabel').textContent = 'STOP';
+  $('recBtn').classList.add('active');
+  $('readyBanner').style.display = 'none';
+  showToast('Round Started');
+}
+
+function stopRecording(goToSummary = true) {
+  STATE.recording = false;
+  $('recIndicator').style.display = 'none';
+  $('recIcon').textContent = '●';
+  $('recLabel').textContent = 'REC';
+  $('recBtn').classList.remove('active');
+  if (goToSummary) {
+    cancelAnimationFrame(STATE.loopId);
+    STATE.running = false;
+    populateSummary();
+    setScreen('summary');
+  }
+}
+
+/* =====================================================
+   SUMMARY
+   ===================================================== */
+function populateSummary() {
+  const duration = STATE.punches.length > 0
+    ? Math.max(...STATE.punches.map(p => p.t)) + 500
+    : 0;
+  const dur = Math.max(duration, performance.now() - STATE.startT);
+  const total = STATE.punches.length;
+  const mins = dur / 60000;
+
+  const now = new Date();
+  $('summaryDate').textContent = now.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric',
+  }) + ' · ' + now.toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+
+  $('sTime').textContent = fmtTime(dur);
+  $('sCount').textContent = total;
+  $('sRate').textContent = mins > 0.05 ? Math.round(total / mins) : 0;
+
+  let straight = 0, hook = 0, upper = 0, velSum = 0;
+  for (const p of STATE.punches) {
+    if (p.type === 'straight') straight++;
+    else if (p.type === 'hook') hook++;
+    else if (p.type === 'uppercut') upper++;
+    velSum += p.vel;
+  }
+  $('bStraight').textContent = straight;
+  $('bHook').textContent = hook;
+  $('bUpper').textContent = upper;
+  $('bVel').textContent = total > 0 ? (velSum / total).toFixed(2) : '0';
+
+  drawGraph(dur);
+  drawHeatmap();
+}
+
+function drawGraph(durationMs) {
+  const cv = $('graphCanvas');
+  const cssW = cv.parentElement.clientWidth;
+  cv.style.width = cssW + 'px';
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = cssW * dpr;
+  cv.height = 180 * dpr;
+  cv.style.height = '180px';
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = cssW, H = 180;
+  const PAD_L = 36, PAD_R = 12, PAD_T = 18, PAD_B = 26;
+
+  ctx.fillStyle = '#141414';
+  ctx.fillRect(0, 0, W, H);
+
+  // Bins
+  const BIN_S = Math.max(2, Math.ceil(durationMs / 1000 / 30)); // ~30 bars max
+  const numBins = Math.max(1, Math.ceil(durationMs / 1000 / BIN_S));
+  const bins = new Array(numBins).fill(0);
+  for (const p of STATE.punches) {
+    const bi = Math.min(numBins - 1, Math.floor(p.t / 1000 / BIN_S));
+    bins[bi]++;
+  }
+  const maxV = Math.max(1, ...bins);
+
+  // Axes
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD_L, PAD_T);
+  ctx.lineTo(PAD_L, H - PAD_B);
+  ctx.lineTo(W - PAD_R, H - PAD_B);
+  ctx.stroke();
+
+  // Bars
+  const innerW = W - PAD_L - PAD_R;
+  const innerH = H - PAD_T - PAD_B;
+  const bw = innerW / numBins;
+  for (let i = 0; i < numBins; i++) {
+    const h = (bins[i] / maxV) * innerH;
+    ctx.fillStyle = bins[i] > 0 ? '#dc2626' : '#1c1c1c';
+    ctx.fillRect(PAD_L + i * bw + 1, H - PAD_B - h, Math.max(1, bw - 2), h);
+  }
+
+  // Labels
+  ctx.fillStyle = '#8a8680';
+  ctx.font = '500 10px "JetBrains Mono", monospace';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(maxV), 6, PAD_T + 2);
+  ctx.fillText('0', 6, H - PAD_B);
+  ctx.textAlign = 'left';
+  ctx.fillText(`per ${BIN_S}s`, PAD_L + 4, PAD_T - 6);
+  ctx.textAlign = 'right';
+  ctx.fillText(fmtTime(durationMs), W - PAD_R, H - PAD_B + 14);
+  ctx.textAlign = 'left';
+  ctx.fillText('0:00', PAD_L, H - PAD_B + 14);
+}
+
+function drawHeatmap() {
+  const cv = $('heatCanvas');
+  const cssW = cv.parentElement.clientWidth;
+  cv.style.width = cssW + 'px';
+  const aspect = STATE.videoH / STATE.videoW;
+  const cssH = Math.round(cssW * aspect);
+  cv.style.height = cssH + 'px';
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = cssW * dpr;
+  cv.height = cssH * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = cssW, H = cssH;
+
+  // Mirror x for front-camera sessions so the map matches what the user saw
+  const mirrorX = STATE.recordingFacingMode === 'user';
+  const xOf = (nx) => (mirrorX ? (1 - nx) : nx) * W;
+
+  ctx.fillStyle = '#0f0f0f';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(244, 241, 234, 0.04)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 10; i++) {
+    ctx.beginPath();
+    ctx.moveTo(W * i / 10, 0); ctx.lineTo(W * i / 10, H);
+    ctx.moveTo(0, H * i / 10); ctx.lineTo(W, H * i / 10);
+    ctx.stroke();
+  }
+  // Center crosshair
+  ctx.strokeStyle = 'rgba(244, 241, 234, 0.1)';
+  ctx.beginPath();
+  ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H);
+  ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);
+  ctx.stroke();
+
+  // Hit zone outline
+  if (STATE.hitZone) {
+    const z = STATE.hitZone;
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.arc(xOf(z.cx), z.cy * H, z.r * Math.min(W, H), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Blobs
+  ctx.globalCompositeOperation = 'screen';
+  for (const p of STATE.punches) {
+    const x = xOf(p.nx), y = p.ny * H;
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, 36);
+    if (p.side === 'left') {
+      grad.addColorStop(0, 'rgba(220, 38, 38, 0.75)');
+      grad.addColorStop(0.4, 'rgba(220, 38, 38, 0.25)');
+      grad.addColorStop(1, 'rgba(220, 38, 38, 0)');
+    } else {
+      grad.addColorStop(0, 'rgba(251, 191, 36, 0.7)');
+      grad.addColorStop(0.4, 'rgba(251, 191, 36, 0.22)');
+      grad.addColorStop(1, 'rgba(251, 191, 36, 0)');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(x - 40, y - 40, 80, 80);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // Dots on top
+  for (const p of STATE.punches) {
+    const x = xOf(p.nx), y = p.ny * H;
+    ctx.fillStyle = p.side === 'left' ? '#f4f1ea' : '#0a0a0a';
+    ctx.strokeStyle = p.side === 'left' ? '#dc2626' : '#fbbf24';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+/* =====================================================
+   CSV EXPORT
+   ===================================================== */
+function exportCSV() {
+  const kpNames = ['nose','leye','reye','lear','rear','lsh','rsh','lelb','relb',
+                   'lwr','rwr','lhip','rhip','lkn','rkn','lank','rank'];
+  let csv = 'Boxing Motion Tracker — Session ' + new Date().toISOString() + '\n';
+  csv += '# Coordinates are in original video frame (px). Mirrored display does not affect data.\n';
+  csv += '\n## Keypoints (per frame)\n';
+  const head = ['t_ms'];
+  for (const n of kpNames) head.push(`${n}_x`, `${n}_y`, `${n}_s`);
+  csv += head.join(',') + '\n';
+  for (const row of STATE.csv) csv += row.join(',') + '\n';
+
+  csv += '\n## Motion Events (classified)\n';
+  csv += 't_ms,side,type,nx,ny,vel,elbow_angle\n';
+  for (const p of STATE.punches) {
+    csv += [
+      Math.round(p.t), p.side, p.type,
+      p.nx.toFixed(3), p.ny.toFixed(3),
+      p.vel, p.elbowAngle,
+    ].join(',') + '\n';
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  a.download = `rounds-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('CSV Downloaded');
+}
+
+/* =====================================================
+   REPLAY
+   ===================================================== */
+const replayCv = $('replayCanvas');
+const replayCtx = replayCv.getContext('2d');
+const replayState = {
+  playing: false,
+  idx: 0,
+  lastT: 0,
+  rafId: 0,
+};
+
+function openReplay() {
+  if (STATE.replay.length < 2) {
+    showToast('Not enough data to replay');
+    return;
+  }
+  // Size to video aspect, fit to wrap
+  const wrap = replayCv.parentElement;
+  const wrapW = wrap.clientWidth, wrapH = wrap.clientHeight;
+  const aspect = STATE.videoW / STATE.videoH;
+  let cssW = wrapW, cssH = wrapW / aspect;
+  if (cssH > wrapH) { cssH = wrapH; cssW = wrapH * aspect; }
+  replayCv.style.width = cssW + 'px';
+  replayCv.style.height = cssH + 'px';
+  // Mirror display to match what the user saw during recording
+  replayCv.style.transform = (STATE.recordingFacingMode === 'user') ? 'scaleX(-1)' : '';
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  replayCv.width = cssW * dpr;
+  replayCv.height = cssH * dpr;
+  replayCtx.setTransform(1, 0, 0, 1, 0, 0);
+  replayCtx.scale(dpr * (cssW / STATE.videoW), dpr * (cssH / STATE.videoH));
+
+  replayState.idx = 0;
+  replayState.playing = true;
+  replayState.lastT = performance.now();
+  $('replayPlayIcon').textContent = '❚❚';
+  setScreen('replay');
+  cancelAnimationFrame(replayState.rafId);
+  drawReplayFrame();
+  replayState.rafId = requestAnimationFrame(replayTick);
+}
+
+function drawReplayFrame() {
+  const i = Math.min(replayState.idx, STATE.replay.length - 1);
+  const frame = STATE.replay[i];
+  if (!frame) return;
+
+  replayCtx.clearRect(0, 0, STATE.videoW, STATE.videoH);
+  // Faded background grid
+  replayCtx.fillStyle = '#0a0a0a';
+  replayCtx.fillRect(0, 0, STATE.videoW, STATE.videoH);
+  replayCtx.strokeStyle = 'rgba(244,241,234,0.04)';
+  replayCtx.lineWidth = 1;
+  for (let g = 1; g < 10; g++) {
+    replayCtx.beginPath();
+    replayCtx.moveTo(STATE.videoW * g / 10, 0);
+    replayCtx.lineTo(STATE.videoW * g / 10, STATE.videoH);
+    replayCtx.moveTo(0, STATE.videoH * g / 10);
+    replayCtx.lineTo(STATE.videoW, STATE.videoH * g / 10);
+    replayCtx.stroke();
+  }
+  // Wrist trails (last 25 frames)
+  const trailStart = Math.max(0, i - 25);
+  for (const side of ['left', 'right']) {
+    const idx = side === 'left' ? KP.L_WRIST : KP.R_WRIST;
+    replayCtx.strokeStyle = side === 'left' ? 'rgba(220,38,38,0.6)' : 'rgba(251,191,36,0.6)';
+    replayCtx.lineWidth = 2;
+    replayCtx.beginPath();
+    let started = false;
+    for (let f = trailStart; f <= i; f++) {
+      const fk = STATE.replay[f].k[idx];
+      if (!fk || fk.s < 0.2) { started = false; continue; }
+      if (!started) { replayCtx.moveTo(fk.x, fk.y); started = true; }
+      else replayCtx.lineTo(fk.x, fk.y);
+    }
+    replayCtx.stroke();
+  }
+  // Skeleton
+  drawReplaySkeleton(frame.k);
+  // Hit zone
+  if (STATE.hitZone) {
+    const z = STATE.hitZone;
+    replayCtx.strokeStyle = 'rgba(251,191,36,0.5)';
+    replayCtx.setLineDash([8, 6]);
+    replayCtx.beginPath();
+    replayCtx.arc(z.cx * STATE.videoW, z.cy * STATE.videoH,
+                  z.r * Math.min(STATE.videoW, STATE.videoH), 0, Math.PI * 2);
+    replayCtx.stroke();
+    replayCtx.setLineDash([]);
+  }
+  // Scrub + time
+  const totalT = STATE.replay[STATE.replay.length - 1].t;
+  $('replayScrub').value = (frame.t / totalT) * 100;
+  $('replayTime').textContent = fmtTime(frame.t) + ' / ' + fmtTime(totalT);
+}
+
+function drawReplaySkeleton(kps) {
+  replayCtx.lineWidth = 3;
+  for (const [a, b] of SKELETON) {
+    const ka = kps[a], kb = kps[b];
+    if (!ka || !kb || ka.s < 0.25 || kb.s < 0.25) continue;
+    const isArm = (a === 5 && b === 7) || (a === 7 && b === 9) ||
+                  (a === 6 && b === 8) || (a === 8 && b === 10);
+    replayCtx.strokeStyle = isArm ? '#dc2626' : '#f4f1ea';
+    replayCtx.beginPath();
+    replayCtx.moveTo(ka.x, ka.y);
+    replayCtx.lineTo(kb.x, kb.y);
+    replayCtx.stroke();
+  }
+  for (let i = 0; i < kps.length; i++) {
+    const k = kps[i];
+    if (!k || k.s < 0.25) continue;
+    const r = (i === KP.L_WRIST || i === KP.R_WRIST) ? 6 : 3;
+    replayCtx.fillStyle = (i === KP.L_WRIST) ? '#dc2626' :
+                         (i === KP.R_WRIST) ? '#fbbf24' : '#f4f1ea';
+    replayCtx.beginPath();
+    replayCtx.arc(k.x, k.y, r, 0, Math.PI * 2);
+    replayCtx.fill();
+  }
+}
+
+function replayTick(t) {
+  if (!replayState.playing) return;
+  const dt = t - replayState.lastT;
+  replayState.lastT = t;
+  // Advance through frames; sample rate ~ FPS/3
+  // Use actual frame timestamps for honest playback
+  if (replayState.idx >= STATE.replay.length - 1) {
+    replayState.idx = STATE.replay.length - 1;
+    replayState.playing = false;
+    $('replayPlayIcon').textContent = '▶';
+    drawReplayFrame();
+    return;
+  }
+  // Step forward by elapsed real time
+  let targetT = STATE.replay[replayState.idx].t + dt;
+  while (replayState.idx < STATE.replay.length - 1 &&
+         STATE.replay[replayState.idx + 1].t <= targetT) {
+    replayState.idx++;
+  }
+  drawReplayFrame();
+  replayState.rafId = requestAnimationFrame(replayTick);
+}
+
+/* =====================================================
+   ZONE PICKER
+   ===================================================== */
+function startZonePick() {
+  STATE.zoneSetting = true;
+  $('zoneHint').style.display = 'block';
+  $('zoneBtn').classList.add('active');
+}
+function endZonePick() {
+  STATE.zoneSetting = false;
+  $('zoneHint').style.display = 'none';
+  $('zoneBtn').classList.remove('active');
+}
+
+videoFrame.addEventListener('click', (e) => {
+  if (!STATE.zoneSetting) return;
+  const rect = videoFrame.getBoundingClientRect();
+  // CSS click position within the frame (frame may be mirrored visually).
+  let nx = (e.clientX - rect.left) / rect.width;
+  const ny = (e.clientY - rect.top) / rect.height;
+  // When the frame is mirrored, the click's CSS x is the mirror of the
+  // raw data x. Un-mirror so the stored zone is in raw video coord space
+  // (same space as detector wrist coordinates).
+  if (STATE.facingMode === 'user') nx = 1 - nx;
+  STATE.hitZone = { cx: nx, cy: ny, r: 0.12 };
+  endZonePick();
+  showToast('Zone set');
+});
+
+/* =====================================================
+   EVENT WIRING
+   ===================================================== */
+$('startBtn').addEventListener('click', async () => {
+  $('startBtn').disabled = true;
+  $('startBtn').textContent = 'Loading…';
+  try {
+    loader.textContent = 'Selecting backend…';
+    const backend = await pickBackend();
+    loader.textContent = `Backend: ${backend} · loading model…`;
+    STATE.detector = await loadDetector();
+    loader.textContent = 'Requesting camera…';
+    await setupCamera(STATE.facingMode);
+    loader.textContent = '';
+    setScreen('live');
+    $('readyBanner').style.display = 'block';
+    STATE.running = true;
+    STATE.loopId = requestAnimationFrame(loop);
+  } catch (e) {
+    console.error(e);
+    loader.textContent = 'Error: ' + (e.message || 'failed to start');
+    $('startBtn').disabled = false;
+    $('startBtn').textContent = 'Retry';
+  }
+});
+
+$('recBtn').addEventListener('click', () => {
+  if (!STATE.running) return;
+  if (STATE.recording) {
+    stopRecording(true);
+  } else {
+    startRecording();
+  }
+});
+
+$('zoneBtn').addEventListener('click', () => {
+  if (STATE.zoneSetting) {
+    endZonePick();
+  } else if (STATE.hitZone) {
+    STATE.hitZone = null;
+    showToast('Zone cleared');
+    $('zoneBtn').classList.remove('active');
+  } else {
+    startZonePick();
+  }
+});
+
+$('flipBtn').addEventListener('click', async () => {
+  if (STATE.recording) {
+    showToast('Stop the round first');
+    return;
+  }
+  STATE.facingMode = STATE.facingMode === 'user' ? 'environment' : 'user';
+  try {
+    await setupCamera(STATE.facingMode);
+    showToast(STATE.facingMode === 'user' ? 'Front camera' : 'Rear camera');
+  } catch (e) {
+    showToast('Camera flip failed');
+    STATE.facingMode = STATE.facingMode === 'user' ? 'environment' : 'user';
+    await setupCamera(STATE.facingMode);
+  }
+});
+
+$('endBtn').addEventListener('click', () => {
+  if (STATE.recording) {
+    stopRecording(true);
+  } else if (STATE.punches.length > 0) {
+    cancelAnimationFrame(STATE.loopId);
+    STATE.running = false;
+    populateSummary();
+    setScreen('summary');
+  } else {
+    showToast('Nothing recorded yet');
+  }
+});
+
+$('csvBtn').addEventListener('click', exportCSV);
+$('replayBtn').addEventListener('click', openReplay);
+$('newBtn').addEventListener('click', async () => {
+  STATE.punches = [];
+  STATE.replay = [];
+  STATE.csv = [];
+  HAND.left = { prevWrist: null, prevAngle: null, prevForearm: null, lastHit: 0 };
+  HAND.right = { prevWrist: null, prevAngle: null, prevForearm: null, lastHit: 0 };
+  setScreen('live');
+  $('readyBanner').style.display = 'block';
+  STATE.running = true;
+  STATE.loopId = requestAnimationFrame(loop);
+});
+
+$('replayBackBtn').addEventListener('click', () => {
+  replayState.playing = false;
+  cancelAnimationFrame(replayState.rafId);
+  setScreen('summary');
+});
+$('replayPlay').addEventListener('click', () => {
+  if (replayState.idx >= STATE.replay.length - 1) replayState.idx = 0;
+  replayState.playing = !replayState.playing;
+  $('replayPlayIcon').textContent = replayState.playing ? '❚❚' : '▶';
+  if (replayState.playing) {
+    replayState.lastT = performance.now();
+    replayState.rafId = requestAnimationFrame(replayTick);
+  }
+});
+$('replayScrub').addEventListener('input', (e) => {
+  if (STATE.replay.length === 0) return;
+  const totalT = STATE.replay[STATE.replay.length - 1].t;
+  const targetT = (parseFloat(e.target.value) / 100) * totalT;
+  let i = 0;
+  while (i < STATE.replay.length - 1 && STATE.replay[i + 1].t <= targetT) i++;
+  replayState.idx = i;
+  drawReplayFrame();
+});
+
+// Handle visibility — pause when tab is hidden to save battery
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && STATE.running) {
+    // soft pause
+    cancelAnimationFrame(STATE.loopId);
+  } else if (!document.hidden && STATE.running) {
+    STATE.fpsT = performance.now();
+    STATE.fpsCount = 0;
+    STATE.loopId = requestAnimationFrame(loop);
+  }
+});
+
+// Resize handler — keep overlay correctly sized
+window.addEventListener('resize', () => {
+  if (STATE.running) sizeOverlay();
+});
+
+// Block context menu / pinch zoom artifacts
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+</script>
+</body>
+</html>
