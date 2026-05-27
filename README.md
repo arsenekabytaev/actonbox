@@ -4,7 +4,7 @@
 
 ## Overview
 
-ACTONBOX is a LLM-based boxing workout analysis platform that gives accurate feedback on your workout by providing statistics ranging from heat maps to the amount of calories burned.
+ACTONBOX is a open source LLM-based boxing workout analysis platform that gives accurate feedback on your workout by providing statistics ranging from heat maps to the amount of calories burned.
 
 The system uses the curvature of your arms and the speed of punches to determine if a punch qualifies as a quality punch or a weak one. ACTONBOX also gives visual feedback and allows users to upload previous workouts not used on the app for examination.
 
@@ -24,4 +24,5 @@ The platform also saves all workout data and tracks session time, hit count, and
 
 ## Technology
 
-ACTONBOX uses MoveNet, created by Google TensorFlow, to provide motion tracking and workout insights.
+ACTONBOX uses MoveNet, created by Google TensorFlow, to provide motion tracking and workout insights. And also uses a custom 
+algorithm to determine the types of punches (Jab, Uppercut, Hook, etc).
