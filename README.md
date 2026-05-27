@@ -1,27 +1,29 @@
 # ACTONBOX
 
-*Created by ActonDev*
+*Created by ActonDev (Arsene Kabytaev, DataQubit)*
 
 ## Overview
 
-ACTONBOX is an LLM-based boxing workout analysis platform that provides accurate feedback on your training sessions through detailed performance statistics, including heat maps and estimated calories burned.
+ACTONBOX is an AI-powered boxing workout analysis platform that delivers real-time feedback and detailed performance insights during training sessions. The platform provides advanced statistics such as heat maps, estimated calories burned, punch accuracy, hit rate, and overall workout efficiency.
 
-The system analyzes arm curvature and punch speed to determine whether a punch qualifies as a strong, high-quality strike or a weaker one. ACTONBOX also delivers visual feedback to help users better understand and improve their performance.
+Using body movement tracking, ACTONBOX analyzes arm curvature, punch speed, and motion patterns to determine whether a punch is strong, accurate, and technically effective or weak and inefficient. The system also provides live visual feedback to help users improve technique and performance over time.
 
-Users can upload previous workout recordings outside of the app for further examination and analysis. The platform stores all workout data, allowing users to track progress over time.
+Users can upload and analyze previous workout recordings outside of the app, while all workout data is securely stored for long-term progress tracking and performance comparisons.
 
 ## Features
 
-- Punch quality detection using movement analysis
+- Real-time punch quality detection using movement analysis
+- Motion-based boxing technique evaluation
 - Heat map generation
 - Estimated calorie tracking
-- Visual performance feedback
-- Upload and analyze previous workouts
-- Workout history and data storage
-- Session time tracking
-- Hit count tracking
-- Hit rate analysis
+- Live visual performance feedback
+- Upload and analyze previous workout recordings
+- Workout history and cloud data storage
+- Session duration tracking
+- Real-time hit count tracking
+- Hit rate and punch accuracy analysis
+- Performance progress tracking over time
 
 ## Technology
 
-ACTONBOX uses MoveNet, created by :contentReference[oaicite:0]{index=0}, to provide motion tracking and workout insights.
+ACTONBOX uses MoveNet, developed by Google TensorFlow, for real-time pose estimation and motion tracking.
