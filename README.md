@@ -24,5 +24,5 @@ The platform also saves all workout data and tracks session time, hit count, and
 
 ## Technology
 
-ACTONBOX uses MoveNet, created by Google TensorFlow, to provide motion tracking and workout insights. And also uses a custom 
+ACTONBOX uses MediaPipe pose model LLM to provide motion tracking and workout insights. And also uses a custom 
 algorithm to determine the types of punches (Jab, Uppercut, Hook, etc).
